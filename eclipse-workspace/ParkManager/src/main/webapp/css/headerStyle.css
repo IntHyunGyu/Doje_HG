@@ -1,0 +1,40 @@
+a {
+	text-decoration: none;
+	color: #7da0ba;
+}
+
+a:hover {
+	color: #fff;
+}
+
+a:link {
+	text-decoration: none;
+}
+
+.footer {
+	display: flex;
+}
+
+footer {
+	width: 100%;
+	height: 20vh;
+	margin: 0 auto;
+	background-color: #84a1b7;
+	border-radius: 10px 10px 10px 10px;
+	align-self: flex-end;
+}
+
+section#mainSection {
+	min-height: calc(100vh - 200px);
+	padding: 20px;
+}
+
+.spanbox {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.spanbox span {
+	line-height: 20vh;
+}

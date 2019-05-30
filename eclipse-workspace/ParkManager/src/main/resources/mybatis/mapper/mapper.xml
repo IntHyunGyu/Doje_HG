@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ParkManager.Dao.ParkManagerDao">
+	<insert id="registU" parameterType="com.ParkManager.VO.UserVO"> <!-- 회원가입  -->
+		INSERT INTO user (id, password, name, phone, regDate)
+		VALUES(#{id}, #{password}, #{name}, #{phone}, now())
+ 	</insert>
+ 	<insert id="registC" parameterType="com.ParkManager.VO.CarVO"> <!-- 회원가입  -->
+		INSERT INTO car (carNum, user, carType)
+		VALUES(#{carNum}, #{user}, #{carType})
+ 	</insert>
+ 	<select id="loginSelectID" parameterType="com.ParkManager.VO.UserVO" resultType="com.ParkManager.VO.UserVO"><!-- 로그인 -->
+ 		SELECT * FROM user WHERE id = #{id} AND password = #{password}
+ 	</select>
+</mapper>
