@@ -54,3 +54,129 @@
 * 조인할 튜플들을 페이징하여 메모리에 올린다. 
 * 블럭단위로 처리하기 때문에 scan비용이 블럭 크기만큼 줄어듬
 
+---
+
+### 쿼리 성능 진단
+
+* 쿼리 실행 계획
+
+  * 쿼리 앞에 **EXPLAIN** 키워드를 붙이면 실행 계획을 확인 할 수 있다.
+
+    ~~~ sql
+    EXPLAIN SELECT * FROM test;
+    ~~~
+
+---
+
+### WHERE 조건 이해
+
+* 묵시적 형변환
+
+  * 정의 : 조건절의 데이터 타입이 다를 때 우선순위가 높은 타입으로 형변환이 내부적으로 되는 것을 말함
+
+  * 예제 : 문자열과 정수값을 비교하면, 우선순위가 낮은 문자열은 자동으로 정수 타입으로 형변환 처리 됨.
+
+    ~~~ sql
+    create table test(
+    inti int unsigned not null auto_increment,
+    intj int unsigned not null,
+    str varchar(64) not null,
+    d datetime not null,
+    primary key(inti)
+    );
+    
+    alter table test add key(intj), add key(str), add key(d);
+    
+    insert into test(intj, str, d)
+    values(
+    	crc32(rand()),
+        crc32(rand()*12345),
+        date_add(now(), interval -crc32(rand())/5 second)
+    );
+    
+    INSERT INTO test(intj, str,d)
+    SELECT
+    	crc32(rand()),
+        crc32(rand())*12345,
+        date_add(now(), interval -crc32(rand())/5 second)
+    FROM test;
+    ~~~
+
+    * 위 코드를 17번 실행하면 약 1만건의 row가 insert된다.
+
+    * 실행 계획에서 intj를 문자열로 검색해보고, 정수형으로 검색 해보기
+
+      * intj를 문자열로 검색
+
+        * 결과 
+
+          |  id  | select_type | table | type | possible_keys | key  | key_len | ref   | rows | Extra |
+          | :--: | :---------: | :---: | ---- | ------------- | ---- | ------- | ----- | ---- | :---: |
+          |  1   |   SIMPLE    | test  | ref  | intj          | intj | 4       | const | 1    | NULL  |
+
+          * 정수형인 intj를 문자열로 검색 하였으나 결과가 제대로 조회되는 것은 명시적 형변환으로 인하여 문자열이 정수형으로 변환되었기 때문이다.
+
+      * intj를 정수형으로 검색
+
+        * 결과
+
+          |  id  | select_type | table | type | possible_keys | key  | key_len | ref   | rows | Extra |
+          | :--: | :---------: | :---: | ---- | ------------- | ---- | ------- | ----- | ---- | :---: |
+          |  1   |   SIMPLE    | test  | ref  | intj          | intj | 4       | const | 1    | NULL  |
+
+          * intj의 타입이 조건문의 타입과 일치하기 때문에 성공적으로 검색됨
+
+    * 실행 계획에서 str을 문자열로 검색해보고, 정수형으로 검색 해보기
+
+      * str을 정수형으로 검색
+
+        * 결과
+
+          |  id  | select_type | table | type | possible_keys | key  | key_len | ref  | rows |    Extra    |
+          | :--: | :---------: | :---: | ---- | ------------- | ---- | ------- | ---- | ---- | :---------: |
+          |  1   |   SIMPLE    | test  | ALL  | str           | NULL | NULL    | NULL | 8304 | Using where |
+
+          * 묵시적 형변환이 발생하여 결과가 조회되기는 하나 인덱스를 사용하지 못하고 풀 테이블 스캔이 발생한다.
+          * test테이블의 데이터가 크지 않기 때문에 수행 속도가 느리지 않으나, 만약 천만건 이상의 데이터 환경에서 테스트 하는 경우 엄청난 **성능 저하**가 발생한다.
+
+      * str을 문자열로 검색
+
+        * 결과
+
+          |  id  | select_type | table | type | possible_keys | key  | key_len | ref   | rows |         Extra         |
+          | :--: | :---------: | :---: | ---- | ------------- | ---- | ------- | ----- | ---- | :-------------------: |
+          |  1   |   SIMPLE    | test  | ref  | str           | str  | 258     | const | 1    | Using index condition |
+
+          * str의 타입이 조건문의 타입과 일치하기 때문에 성공적으로 검색됨
+
+---
+
+### 용어 찾아보기
+
+* 인덱스 [:bookmark_tabs:](<https://lalwr.blogspot.com/2016/02/db-index.html>)
+
+  * **RDBMS**에서 검색속도를 높이기 위해 사용하는 기술
+  * 인덱스의 종류[:bookmark_tabs:](<https://mee2ro.tistory.com/2>)
+    * 클러스터 인덱스 (Cluster Index) 
+      * 지정한 열에 대해 자체가 "가나다" or "ABC"로 자동 정렬되어 있어 영어사전과 비슷하며, 한 테이블에 한 개만 생성 가능하다.
+    * 비클러스터형 인덱스(NonClustered Index)
+      *   일반 책과 비슷하며, 한 테이블에 여러 개 생성 가능하다. 클러스터형 인덱스 처럼 자동 정렬되지 않는다.
+
+* 데이터품질에서 도메인 [:bookmark_tabs:](<http://blog.naver.com/PostView.nhn?blogId=new_magma&logNo=20038148095>)
+
+  * 도메인
+    * 동일한 유형을 갖는 속성들의 집합
+  * 속성들의 공통 부분을 묶어 도메인을 나누기도 함.
+  * 데이터 값을 규정하고 제한하기 위한 목적
+    * ex) 설명20, 설명200, 설명1000
+  * 도메인을 잘 정의하면 실제 물리DB구축 시에 각 컬럼에 잘못된 값이 입력되는 것을 사전에 예방하고 [ERD](<https://m.blog.naver.com/PostView.nhn?blogId=dktmrorl&logNo=220475357522&proxyReferer=https%3A%2F%2Fwww.google.com%2F>)를 보면서 도메인만 보더라도 데이터 포멧이나 유형을 예측 가능하다.
+
+* B트리 [:bookmark_tabs:](<https://untitledtblog.tistory.com/75>)
+
+  * Balanced Tree로 균형을 유지하는 [트리](<https://gmlwjd9405.github.io/2018/08/12/data-structure-tree.html>)
+
+  * 대용량의 파일을 효율적으로 관리하기 위한 자료구조
+
+  * 산업 분야에서 데이터베이스 시스템에 전박적으로 사용되는 구조다.
+
+    ![](https://user-images.githubusercontent.com/40411714/58931581-2a3f8f80-879b-11e9-9ac5-ce9bcad734ab.png)
