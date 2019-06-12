@@ -38,7 +38,7 @@
       ![](https://user-images.githubusercontent.com/40411714/58614172-9ed58280-82f2-11e9-8815-455b59edfc81.PNG)
 
       * MyISAM
-        * **비-트랜젝션-세이프 **스토리 엔진이다.
+        * **비-트랜젝션-세이프**스토리 엔진이다.
         * InnoDB에 비하여 별다른 기능이 없어 단순하고 전체적인 속도가 빠르다. **읽기 작업**( SELECT) 속도가 빨라 데이터 검색이 많은 테이블에 적합하다.
         * **Table-level-Lock**을 사용하기 때문에 쓰기 작업(INSERT, UPDATE) 속도가 느리다.
       * InnoDB
